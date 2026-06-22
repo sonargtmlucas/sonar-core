@@ -13,11 +13,17 @@ Tiago defines what the signals mean commercially and what action should follow.
 - System reliability, documentation, and technical delivery
 - Reusable components and automation percentage tracking
 
-## Background
+## Background (public credentials — use in sales materials)
+- 70%+ reduction in manual GTM work achieved for prior builds
+- Multi-six-figure AI infrastructure experience
+- Automation and autonomous systems specialist
+- Revenue infrastructure architect
+- AI Systems Architect title for Sonar
+
+## Personal background
 - 23 years old, Lima Peru
 - Dropped out to build businesses full-time
-- Building Jarvis — a personal AI operating system (the system that runs his own life)
-- The Sonar AIOS is a direct application of that same methodology to a company context
+- Built Jarvis — a personal AI operating system (the AIOS methodology applied to himself first)
 - Strong bias for systems over headcount, automation over repetition, context-as-infrastructure
 
 ## Technical stack (primary)

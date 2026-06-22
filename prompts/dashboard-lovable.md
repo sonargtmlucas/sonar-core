@@ -252,6 +252,17 @@ Values:
 
 All reads use the anon key. Never expose the service role key in the client.
 
+## Multi-channel outreach flow (reflected in the UI)
+The product runs a multi-touchpoint sequence:
+1. Email via Instantly (primary channel)
+2. If no response after Email 3: LinkedIn touchpoint via Phantom Buster
+3. Goal: book a strategy call at https://tidycal.com/castro
+
+In the Outreach screen, show this flow clearly per lead:
+- Email sequence status (sent 1/2/3/4)
+- LinkedIn touchpoint status (pending / sent / replied)
+- Overall lead status in the funnel
+
 ## What NOT to build
 - No authentication/login (internal tool, single team)
 - No user management beyond the Settings page display

@@ -47,6 +47,17 @@ CTA buttons:
 
 Background: radial gradient from slightly lighter navy (#0a2440) at center to #071A2B at edges. Subtle grid overlay at 3% opacity.
 
+### Stats banner (between hero and problem — full width, dark strip)
+4 metrics in a horizontal strip, separated by vertical dividers. Font: DM Mono. Numbers in Sora ExtraBold.
+
+- $4.82M — "Pipeline Generated (Last 30 Days)"
+- 68 — "Qualified Meetings Booked"
+- 14.6% — "Average Reply Rate"
+- 500+ — "High-Intent Accounts Identified"
+
+Background: slightly lighter than page (#0a1628). Top and bottom border in Signal Blue at 10% opacity.
+Numbers animate counting up when they enter the viewport (use Framer Motion).
+
 ### Section 2 — The problem (3 columns)
 Section eyebrow: MODERN GTM HAS A SIGNAL PROBLEM (DM Mono, Signal Blue, small)
 Heading: "Louder is not smarter."
@@ -97,17 +108,52 @@ Right column — NOT A FIT:
 - Wants guaranteed meetings
 - No CRM discipline
 
+### Section 6B — The AI Agent System (6 agents)
+Section eyebrow: THE AI WORKFORCE
+Heading: "Six agents. One revenue loop."
+Subheading: "Each agent handles a specific part of the GTM workflow. Together they run 24/7."
+
+6 agent cards in a 2x3 grid (dark glassmorphic cards):
+
+1. Research Agent — "Firmographics, tech stack, org structure, company intelligence"
+2. Signal Agent — "Hiring activity, intent signals, website behavior, leadership changes"
+3. Qualification Agent — "ICP matching, opportunity scoring, lead prioritization"
+4. Outreach Agent — "Personalized messaging, persona-specific angles, dynamic copy"
+5. Follow-Up Agent — "Sequence timing, behavioral adaptation, multi-channel coordination"
+6. CRM Agent — "Activity logging, record updates, CRM hygiene automation"
+
+Each card: agent name in Signal Blue, role in Sonar Silver, capabilities as short bullet list.
+Small animated status indicator (green pulse dot) on each card showing "ACTIVE".
+
 ### Section 7 — How to engage (2 offer cards)
 Heading: "Two ways to work with Sonar."
 Card 1 — DEPLOY SONAR: "An always-on revenue intelligence system inside your existing stack. Signal architecture, research agents, activation, reporting, and managed operation." Pricing: "From $7,500 / Architecture Sprint"
 Card 2 — BUILD WITH SONAR: "Custom AI systems for high-value workflows beyond GTM. For trusted relationships that need intelligence beyond pipeline." Pricing: "Scoped per engagement"
 
-### Section 8 — CTA / Book a call
+### Section 8B — Team section
+Heading: "Built by revenue operators who've lived both sides."
+Two founder cards side by side:
+
+Tiago Castro — GTM & Revenue Leader
+- $40M+ closed revenue
+- $100M+ pipeline built
+- Sales leadership across the Americas
+- IBM Global Sales School (distinction)
+Short bio: "Spent years building pipeline manually at VP level. Built Sonar because he needed it."
+
+Lucas Soto — AI Systems Architect
+- 70%+ reduction in manual GTM work
+- Multi-six-figure AI infrastructure
+- Autonomous systems and automation
+- Revenue infrastructure architecture
+Short bio: "Builds the AI systems that let revenue teams work without the manual overhead."
+
+### Section 9 — CTA / Book a call
 Heading: "Ready to see what's moving in your market?"
-Subheading: "We run a free Revenue Audit — 30 minutes to map your signal opportunities and show you which accounts deserve attention right now."
-CTA button (Signal Blue, full-width on mobile): "Book a Revenue Audit"
+Subheading: "Book a Strategy Call — 30 minutes to map your signal opportunities and identify which accounts deserve attention right now."
+CTA button (Signal Blue, full-width on mobile): "Book a Strategy Call"
 Below button: "No pitch. No deck. Just a diagnostic."
-Link routes to: [BOOKING LINK — replace with Tiago's Calendly]
+Link: https://tidycal.com/castro
 
 ### Footer
 Logo + "SONARGTM.COM"

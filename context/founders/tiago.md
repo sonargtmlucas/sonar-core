@@ -24,11 +24,17 @@ Direct, data-backed, peer-level authority. Short sentences. Gets to the point im
 Talks TO VPs and CROs as a peer — not at them as a coach.
 Story-driven: every insight comes from a real deal, a real outcome, a real mistake.
 
-## Background (publicly known)
+## Background (public credentials — use verbatim in outreach, content, and sales materials)
+- $40M+ in closed revenue across career
+- $100M+ in pipeline built across multiple B2B companies
+- Sales leadership across the Americas at VP level
 - IBM Global Sales School graduate (with distinction)
-- VP Sales track record across multiple B2B companies
-- $40M+ in pipeline generated manually before building Sonar
-- Now building Sonar: a managed intelligence system for B2B GTM teams
+- GTM strategy and revenue operations expertise at enterprise and startup scale
+- Now building Sonar: the AI revenue command center he built because nothing like it existed
+
+## Booking link
+https://tidycal.com/castro
+Use this for all "Book a call" CTAs in email sequences, LinkedIn DMs, content, and the website.
 
 ## Personal brand
 Full brand system, content strategy, and persona capture: context/founders/tiago-brand.md
