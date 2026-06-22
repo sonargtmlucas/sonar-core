@@ -45,5 +45,12 @@ Target: $10K MRR by Jul 31, 2026 · $40K stretch by Dec 31, 2026
 
 ## Tech stack
 Supabase (leads, pipeline, metrics) · Instantly (email campaigns) · Apify (scraping)
-Expand.io (LinkedIn automation) · Anthropic Claude API · n8n (future automation layer)
+Expand.io (LinkedIn automation) · Anthropic Claude API · n8n (orchestration/automation layer)
 See .claude/rules/tech-defaults.md for API patterns and keys.
+
+## n8n workflows
+- signal-monitor — daily signal scrape + ICP scoring → Telegram alert
+- reply-detection — hourly Instantly poll → classify → hot lead alerts
+- daily-brief — 8am multi-source pull → Claude → Telegram to Tiago
+- lead-enrichment — webhook: new lead → enrich → score → Instantly campaign
+See workflows/ for full specs. Skill: ops/design-n8n-workflow

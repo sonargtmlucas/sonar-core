@@ -46,9 +46,24 @@ Once Sonar MVP is on Vercel, skills will call the Vercel API endpoints instead
 (same pattern as Jarvis localhost:3000 but with the production URL).
 
 ## n8n
-Installed locally at ~/.n8n — not running in production yet.
-Will become the automation layer for scheduled workflows (signal monitoring, daily briefs).
-Skills are designed to be callable from n8n workflows.
+Installed locally at ~/.n8n/
+Start: npx n8n or n8n start. Default port: 5678 → http://localhost:5678
+
+Role in the stack: orchestration layer for scheduled and webhook-triggered automations.
+Claude handles reasoning. n8n handles scheduling, API pipelines, routing, and notifications.
+
+Active workflows (see workflows/ folder for full specs):
+- signal-monitor: daily 7am — Apify ICP scrape → score → Telegram alert
+- reply-detection: hourly — Instantly poll → classify → alert on positive replies
+- daily-brief: daily 8am — Supabase + Instantly → Claude sonnet → Telegram
+- lead-enrichment: webhook — new lead → Apify scrape → score → Instantly campaign
+
+n8n calls Claude API via HTTP Request node:
+POST https://api.anthropic.com/v1/messages
+Headers: x-api-key: {{ $env.ANTHROPIC_API_KEY }}, anthropic-version: 2023-06-01
+Use haiku for classify/score/format tasks. Use sonnet for briefs and complex reasoning.
+
+Skills can also be triggered from n8n via HTTP Request to the Sonar API (once on Vercel).
 
 ## Git workflow
 - Main branch: main
