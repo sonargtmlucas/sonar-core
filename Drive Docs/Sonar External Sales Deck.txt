@@ -1,0 +1,160 @@
+SONAR
+Find the signal.
+Move when it matters.
+Intelligent revenue systems for B2B teams drowning in tools, data, and noise.
+External sales deck / discovery version
+SONARGTM.COM
+1
+
+THE PROBLEM
+Modern GTM is loud. Revenue is quiet.
+Teams added tools, data, sequences, and AI — but still struggle to answer the only question that matters:
+Which accounts deserve attention right now?
+STATIC LISTS
+Every account looks equally important until a real buying window is missed.
+TOOL SPRAWL
+CRM, Apollo, LinkedIn, enrichment, email, and reporting rarely share one brain.
+FAKE CONTEXT
+“Saw your post” is not relevance. Buyers respond to timing and commercial need.
+SONARGTM.COM
+2
+
+THE INSIGHT
+Pipeline starts before the reply.
+A prospect usually moves before they respond: hiring, leadership change, expansion, website behavior, product usage, funding, dormant CRM activity, technology shifts, or public pain.
+Sonar turns movement into commercial action.
+FIT
+Is this company worth pursuing?
+MOVEMENT
+What changed that makes timing relevant?
+ACTION
+Who should act, what should they say, and through which channel?
+SONARGTM.COM
+3
+
+WHAT SONAR IS
+A market-sensing system with two modes.
+Sonar is the intelligence layer between market movement and revenue action. It listens for signals, runs directed pulses, and learns from outcomes.
+LISTEN
+Always-on capture from web, CRM, social, hiring, product, content, and account movement.
+CORE
+Identity, context, scoring, play selection, routing, and learning.
+PULSE
+Directed activation around a vertical, account list, campaign, or hypothesis.
+SONARGTM.COM
+4
+
+WHAT WE BUILD
+A signal-to-action system inside your existing stack.
+We connect the tools you already use into one operating loop: data, signals, context, scoring, research, activation, CRM, and reporting.
+SIGNAL ARCHITECTURE
+ICP, segments, data sources, trigger logic, scoring model, and “why now” rules.
+RESEARCH AGENTS
+Company context, persona mapping, trigger interpretation, and message inputs.
+ACTIVATION LAYER
+Email, LinkedIn, CRM tasks, Slack alerts, rep routing, and reply handling.
+LEARNING LOOP
+Outcomes return to the CRM and improve prioritization over time.
+SONARGTM.COM
+5
+
+EXAMPLE WORKFLOW
+From signal to action in one loop.
+Example: a dormant target account hires a new CRO, visits your pricing page, and starts hiring SDRs.
+Signal detected
+Context enriched
+Account scored
+Play selected
+Rep routed
+Outcome logged
+The output is not “send more email.” The output is an explainable recommendation: why this account, why now, who to contact, what to say, and whether the action should be automated or human-led.
+SONARGTM.COM
+6
+
+SIGNALS WORTH ACTING ON
+The signal matters less than the combination.
+Revenue hiring
+SDR, AE, RevOps, Growth, or Sales leadership roles.
+Leadership change
+New CRO, VP Sales, Head of Growth, or founder-led transition.
+First-party activity
+Website visits, content engagement, signups, product usage, or dormant CRM reactivation.
+Expansion
+New market, product launch, acquisition, location, or partnership.
+Technology shift
+New tool adoption, migration, or workflow pressure.
+Public pain
+Posts, communities, job descriptions, or conversations that reveal active need.
+SONARGTM.COM
+7
+
+HOW TO ENGAGE
+Deploy Sonar for revenue — or build a strategic system around another workflow.
+DEPLOY SONAR
+For revenue teams that need better timing, prioritization, and action.
+
+Always-on listening + directed pulse campaigns + managed operation inside your existing stack.
+BUILD WITH SONAR
+For high-value workflows that need intelligence and action beyond GTM.
+
+Research, proposals, onboarding, customer success, reporting, and operational coordination.
+Revenue is the first focus. The system architecture is bigger than lead generation.
+SONARGTM.COM
+8
+
+WHAT’S INCLUDED
+No token math. No agent babysitting. No infrastructure puzzle.
+You buy a managed workflow with a defined scope, clear controls, and ongoing improvement.
+• Infrastructure included within scope
+• Monitoring and maintenance
+• Human approvals where needed
+• Security and access controls
+• CRM and workflow integration
+• Continuous optimization
+• Major new workflows separately scoped
+THE PRINCIPLE
+Customers should feel like the system works for them — not like they are managing agents, debugging prompts, or paying unpredictable token bills.
+SONARGTM.COM
+9
+
+WHO IT IS FOR
+Best fit: ambitious teams with tools, data, and pipeline pressure.
+GOOD FIT
+B2B SaaS or tech-enabled services
+20–150 employees
+$15K+ ACV
+Existing CRM + outbound stack
+Inconsistent pipeline
+Founder or revenue leader wants sharper timing
+NOT A FIT
+No clear ICP
+Very low ACV
+No sales owner
+No CRM discipline
+Wants cheap appointment-setting
+Believes more email volume fixes everything
+The first question is not “how many leads?” It is “what movements actually predict revenue?”
+SONARGTM.COM
+10
+
+EXPECTED OUTCOMES
+Better timing. Cleaner focus. More qualified movement.
+1
+Sales attention moves toward accounts with fit + movement, not static filters.
+2
+Messaging becomes grounded in commercial relevance and timing.
+3
+The CRM becomes a learning loop for signal-to-pipeline conversion.
+Success is measured through meetings created, opportunities influenced, rep time saved, dormant pipeline revived, and workflow reliability — not vanity volume.
+SONARGTM.COM
+11
+
+NEXT STEP
+Let’s map your first signal-to-pipeline workflow.
+In one working session, we identify the segment, signals, data sources, decision rules, and first activation path worth testing.
+DISCOVERY OUTPUT
+A clear workflow candidate, data requirements, signal logic, scope, timeline, and implementation path.
+Find the signal.
+Move when it matters.
+SONARGTM.COM
+12

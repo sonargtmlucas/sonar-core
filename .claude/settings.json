@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx ts-node scripts/*.ts *)",
+      "Bash(git add *)",
+      "Bash(git commit -m *)",
+      "Bash(git status)",
+      "Bash(git log *)",
+      "Bash(ls *)",
+      "Bash(cat *)",
+      "Bash(find . *)",
+      "Bash(mkdir -p *)"
+    ]
+  }
+}
