@@ -4,6 +4,12 @@ One GitHub repo. Two founders. One AI brain for the entire business.
 This repo is the memory, context layer, and skill system for Sonar GTM.
 Connect your Claude Code or ChatGPT to this repo and you have full company context.
 
+## Who is talking right now
+Check $SONAR_USER env var (set in .claude/settings.local.json — not committed):
+- `lucas` → load context/founders/lucas.md. Technical scope. Approves architecture decisions.
+- `tiago` → load context/founders/tiago.md + context/founders/tiago-brand.md. Commercial scope. Approves all external output.
+- Unknown → ask who is talking before proceeding with business tasks.
+
 ## Absolute rules
 - Never send outreach, post content, or make client commitments without explicit approval
 - Always read the relevant context file before acting on any business task
@@ -24,6 +30,8 @@ Connect your Claude Code or ChatGPT to this repo and you have full company conte
 - What's been built + next → docs/build-log.md
 
 ## Skills available
+- system/onboarding — first-time setup: asks who you are, writes settings.local.json, briefs you
+- system/morning-coffee — daily briefing: git log + ClickUp tasks + signals → what to focus on today
 - gtm/research-account — deep account research via Apify + Claude
 - gtm/score-lead — ICP score (0-100) + "why now" logic
 - gtm/draft-email — personalized 4-email sequence in Tiago's voice

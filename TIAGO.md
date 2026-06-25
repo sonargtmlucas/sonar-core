@@ -45,33 +45,59 @@ You wake up knowing exactly what to do. Hot replies surface immediately. Qualifi
 
 ---
 
-## How to connect and use it
+## Setup — one time only (10 minutes)
 
-### Option A — Claude Code (recommended, same as Lucas)
+### Step 1 — Install Claude Code
+Download: [claude.ai/code](https://claude.ai/code) → install the desktop app → subscribe to Claude Pro ($20/mo)
 
-1. Download Claude Code: [claude.ai/code](https://claude.ai/code) (desktop app or VS Code extension)
-2. Subscribe to Claude Pro ($20/mo) or Max ($100/mo)
-3. Clone this repo to your Mac:
-   ```
-   git clone https://github.com/sonargtmlucas/sonar-core.git
-   cd sonar-core
-   ```
-4. Open Claude Code inside the `sonar-core` folder
-5. That's it. Claude reads `CLAUDE.md` automatically and knows everything about Sonar.
+### Step 2 — Clone the repo
+Open Terminal (Cmd+Space → "Terminal") and paste this exactly:
+```
+git clone https://github.com/sonargtmlucas/sonar-core.git
+cd sonar-core
+```
 
-From there, you just talk to it in plain English. Examples:
-> "Research Hubspot competitor Attio before I reach out to their VP Sales"
-> "Write a LinkedIn post for Monday — Pipeline Architecture pillar"
-> "Draft the email sequence for the CEO of Rippling"
+### Step 3 — Run onboarding
+Still in Terminal, type:
+```
+claude
+```
+Claude Code opens. Then type: `/onboarding`
 
-### Option B — ChatGPT with Codex (if you prefer ChatGPT)
+It will ask who you are → say Tiago → it sets everything up automatically.
 
-1. Go to [chatgpt.com](https://chatgpt.com) → open a Project
-2. In the Project settings, connect your GitHub account and select the `sonargtmlucas/sonar-core` repo
-3. Now ChatGPT (Codex) has access to all the files in this repo as context
-4. Talk to it the same way — it reads the same CLAUDE.md and context files
+**That's it. You never touch the terminal again after this.**
 
-**Note:** Claude Code is better for this specific setup because it was designed for file-based context. ChatGPT with Codex works but may need you to reference files more explicitly.
+---
+
+## Daily workflow — 3 steps
+
+**Every time you open Claude Code:**
+
+```
+1. Open Terminal → cd sonar-core → git pull
+2. Type: claude
+3. Type: /morning-coffee
+```
+
+`git pull` syncs what Lucas built since your last session. `/morning-coffee` tells you exactly what to focus on today based on your ClickUp tasks, the latest signals, and what Lucas worked on.
+
+**At the end of your session**, just tell Claude:
+> "Commit what we did today"
+
+It logs everything and pushes. Lucas will see it when he does `git pull` in his next session.
+
+---
+
+## What to say to get things done
+
+Just talk naturally. Examples:
+> "Research Acme Corp before I reach out"
+> "Write a LinkedIn post about why most VPs of Sales are doing outbound wrong"
+> "Draft the email sequence for John Smith, CRO at Rippling"
+> "Score this company against our ICP: [name]"
+> "What should I post about this week?"
+> "Morning coffee" → daily briefing
 
 ---
 

@@ -1,0 +1,6 @@
+{
+  "env": {
+    "SONAR_USER": "tiago",
+    "SONAR_ROLE": "commercial"
+  }
+}
