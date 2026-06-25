@@ -22,20 +22,26 @@ git log --oneline --since="24 hours ago"
 Also read the last 20 lines of `docs/build-log.md` to get the most recent update.
 
 ## Step 3 — Pull ClickUp tasks for current user
-Call ClickUp API to get open tasks:
+Each person sets their own `CLICKUP_PERSONAL_TOKEN` in their local `.env`.
+This ensures the query returns THEIR tasks, not someone else's.
+
 ```bash
-curl -s "https://api.clickup.com/api/v2/team/90171339348/task?assignees[]=210067012&statuses[]=to%20do&statuses[]=in%20progress&order_by=priority" \
-  -H "Authorization: $CLICKUP_TOKEN" | python3 -c "
+curl -s "https://api.clickup.com/api/v2/team/90171339348/task?statuses[]=to%20do&statuses[]=in%20progress&order_by=priority&assignees[]=$CLICKUP_USER_ID" \
+  -H "Authorization: $CLICKUP_PERSONAL_TOKEN" | python3 -c "
 import sys, json
 d = json.load(sys.stdin)
 tasks = d.get('tasks', [])
 print(f'Open tasks: {len(tasks)}')
 for t in tasks[:5]:
-    print(f'  [{t.get(\"priority\",{}).get(\"priority\",\"\")}] {t.get(\"name\")}')
-"
+    print(f'  [{t.get(\"priority\",{}).get(\"priority\",\"normal\")}] {t.get(\"name\")}')
+" 2>/dev/null || echo "ClickUp not configured — check CLICKUP_PERSONAL_TOKEN in .env"
 ```
 
-Note: `CLICKUP_TOKEN` is the personal token in `.env`. If the API call fails, skip and continue.
+ClickUp user IDs:
+- Lucas: `210067012`
+- Tiago: get from ClickUp → Profile → Apps → API token page (user ID shown there)
+
+If the API call fails, skip gracefully and continue with git log and Supabase data only.
 
 ## Step 4 — Check Supabase for overnight activity
 ```bash

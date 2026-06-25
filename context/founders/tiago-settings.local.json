@@ -4,3 +4,8 @@
     "SONAR_ROLE": "commercial"
   }
 }
+
+// After copying this file to .claude/settings.local.json, also add these to your local .env:
+// CLICKUP_PERSONAL_TOKEN=pk_[your token from clickup.com → Profile → Apps → API Token]
+// CLICKUP_USER_ID=[your user ID, shown on the same page]
+// CLICKUP_WORKSPACE_ID=90171339348
