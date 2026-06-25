@@ -32,6 +32,7 @@ Check $SONAR_USER env var (set in .claude/settings.local.json — not committed)
 ## Skills available
 - system/onboarding — first-time setup: asks who you are, writes settings.local.json, briefs you
 - system/morning-coffee — daily briefing: git log + ClickUp tasks + signals → what to focus on today
+- system/after-meeting — run after every Lucas x Tiago call: transcript → brief in references/ + ClickUp tasks created automatically
 - gtm/research-account — deep account research via Apify + Claude
 - gtm/score-lead — ICP score (0-100) + "why now" logic
 - gtm/draft-email — personalized 4-email sequence in Tiago's voice
