@@ -1,0 +1,237 @@
+{
+  "name": "Reply Detection",
+  "nodes": [
+    {
+      "id": "b2c3d4e5-0001",
+      "name": "Every Hour (Business Hours)",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [240, 300],
+      "parameters": {
+        "rule": {
+          "interval": [{ "field": "hours", "hoursInterval": 1 }]
+        }
+      }
+    },
+    {
+      "id": "b2c3d4e5-0002",
+      "name": "Get Unread Replies",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [460, 300],
+      "parameters": {
+        "method": "GET",
+        "url": "https://api.instantly.ai/api/v2/emails?limit=50&folder=REPLY",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "=Bearer {{ $env.INSTANTLY_API_KEY }}" }
+          ]
+        }
+      }
+    },
+    {
+      "id": "b2c3d4e5-0003",
+      "name": "Has Replies?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [680, 300],
+      "parameters": {
+        "conditions": {
+          "conditions": [
+            {
+              "id": "cond-001",
+              "leftValue": "={{ $json.items ? $json.items.length : 0 }}",
+              "rightValue": 0,
+              "operator": { "type": "number", "operation": "gt" }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "b2c3d4e5-0004",
+      "name": "Split Replies",
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [900, 180],
+      "parameters": {
+        "fieldToSplitOut": "items",
+        "options": {}
+      }
+    },
+    {
+      "id": "b2c3d4e5-0005",
+      "name": "Classify Reply",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1120, 180],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "x-api-key", "value": "={{ $env.ANTHROPIC_API_KEY }}" },
+            { "name": "anthropic-version", "value": "2023-06-01" },
+            { "name": "content-type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={\n  \"model\": \"claude-haiku-4-5-20251001\",\n  \"max_tokens\": 10,\n  \"messages\": [{\n    \"role\": \"user\",\n    \"content\": \"Classify this email reply as exactly one word: positive / negative / neutral / ooo\\n\\nReply: {{ $json.body?.text || $json.body || '' }}\"\n  }]\n}"
+      }
+    },
+    {
+      "id": "b2c3d4e5-0006",
+      "name": "Is Positive?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1340, 180],
+      "parameters": {
+        "conditions": {
+          "conditions": [
+            {
+              "id": "cond-002",
+              "leftValue": "={{ $json.content[0].text.toLowerCase().trim() }}",
+              "rightValue": "positive",
+              "operator": { "type": "string", "operation": "equals" }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "b2c3d4e5-0007",
+      "name": "Get Lead from Supabase",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1560, 100],
+      "parameters": {
+        "method": "GET",
+        "url": "=https://{{ $env.SUPABASE_URL.replace('https://', '') }}/rest/v1/leads?email=eq.{{ encodeURIComponent($('Split Replies').item.json.from_address || '') }}&select=name,company,icp_score,why_now",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}" },
+            { "name": "Authorization", "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}" }
+          ]
+        }
+      }
+    },
+    {
+      "id": "b2c3d4e5-0008",
+      "name": "Suggest Response",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1780, 100],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "x-api-key", "value": "={{ $env.ANTHROPIC_API_KEY }}" },
+            { "name": "anthropic-version", "value": "2023-06-01" },
+            { "name": "content-type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={\n  \"model\": \"claude-haiku-4-5-20251001\",\n  \"max_tokens\": 150,\n  \"messages\": [{\n    \"role\": \"user\",\n    \"content\": \"Write a 2-3 sentence reply in Tiago Castro's voice. Direct, peer-level, no fluff. Goal: book a 15-min call. Booking link: https://tidycal.com/castro\\n\\nContact: {{ ($('Get Lead from Supabase').first().json[0] || {}).name || $('Split Replies').item.json.from_address }}, {{ ($('Get Lead from Supabase').first().json[0] || {}).company || 'their company' }}\\nTheir reply: {{ $('Split Replies').item.json.body?.text || $('Split Replies').item.json.body || '' }}\\n\\nReply only with the suggested response, nothing else.\"\n  }]\n}"
+      }
+    },
+    {
+      "id": "b2c3d4e5-0009",
+      "name": "Log Hot Reply",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2000, 100],
+      "parameters": {
+        "method": "POST",
+        "url": "=https://{{ $env.SUPABASE_URL.replace('https://', '') }}/rest/v1/agent_logs",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}" },
+            { "name": "Authorization", "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}" },
+            { "name": "Content-Type", "value": "application/json" },
+            { "name": "Prefer", "value": "return=minimal" }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={\n  \"agent\": \"outreach\",\n  \"action\": \"positive_reply_detected\",\n  \"result\": \"HOT REPLY from {{ ($('Get Lead from Supabase').first().json[0] || {}).name || $('Split Replies').item.json.from_address }} — check Instantly now\",\n  \"status\": \"success\",\n  \"metadata\": {\n    \"from\": \"{{ $('Split Replies').item.json.from_address }}\",\n    \"company\": \"{{ ($('Get Lead from Supabase').first().json[0] || {}).company || '' }}\",\n    \"icp_score\": {{ ($('Get Lead from Supabase').first().json[0] || {}).icp_score || 0 }},\n    \"suggested_response\": \"{{ $json.content[0].text.replace(/\"/g, \"'\") }}\"\n  }\n}"
+      }
+    },
+    {
+      "id": "b2c3d4e5-0010",
+      "name": "Update Lead Status",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2000, 280],
+      "parameters": {
+        "method": "PATCH",
+        "url": "=https://{{ $env.SUPABASE_URL.replace('https://', '') }}/rest/v1/leads?email=eq.{{ encodeURIComponent($('Split Replies').item.json.from_address || '') }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}" },
+            { "name": "Authorization", "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}" },
+            { "name": "Content-Type", "value": "application/json" },
+            { "name": "Prefer", "value": "return=minimal" }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "{\"status\": \"replied\"}"
+      }
+    }
+  ],
+  "connections": {
+    "Every Hour (Business Hours)": {
+      "main": [[{ "node": "Get Unread Replies", "type": "main", "index": 0 }]]
+    },
+    "Get Unread Replies": {
+      "main": [[{ "node": "Has Replies?", "type": "main", "index": 0 }]]
+    },
+    "Has Replies?": {
+      "main": [
+        [{ "node": "Split Replies", "type": "main", "index": 0 }],
+        []
+      ]
+    },
+    "Split Replies": {
+      "main": [[{ "node": "Classify Reply", "type": "main", "index": 0 }]]
+    },
+    "Classify Reply": {
+      "main": [[{ "node": "Is Positive?", "type": "main", "index": 0 }]]
+    },
+    "Is Positive?": {
+      "main": [
+        [{ "node": "Get Lead from Supabase", "type": "main", "index": 0 }],
+        []
+      ]
+    },
+    "Get Lead from Supabase": {
+      "main": [[{ "node": "Suggest Response", "type": "main", "index": 0 }]]
+    },
+    "Suggest Response": {
+      "main": [
+        [{ "node": "Log Hot Reply", "type": "main", "index": 0 }],
+        [{ "node": "Update Lead Status", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true
+  },
+  "active": false
+}

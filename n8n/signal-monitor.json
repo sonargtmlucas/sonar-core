@@ -1,0 +1,203 @@
+{
+  "name": "Signal Monitor",
+  "nodes": [
+    {
+      "id": "d4e5f6g7-0001",
+      "name": "7am Daily",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [240, 300],
+      "parameters": {
+        "rule": {
+          "interval": [{ "field": "cronExpression", "expression": "0 7 * * *" }]
+        }
+      }
+    },
+    {
+      "id": "d4e5f6g7-0002",
+      "name": "Get Already Seen Domains",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [460, 300],
+      "parameters": {
+        "method": "GET",
+        "url": "=https://{{ $env.SUPABASE_URL.replace('https://', '') }}/rest/v1/signals?select=company_domain&order=detected_at.desc&limit=200",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}" },
+            { "name": "Authorization", "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}" }
+          ]
+        }
+      }
+    },
+    {
+      "id": "d4e5f6g7-0003",
+      "name": "Scrape Job Board Signals",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [680, 300],
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.apify.com/v2/acts/curious_coder~linkedin-jobs-scraper/run-sync-get-dataset-items?token={{ $env.APIFY_API_KEY }}&timeout=120",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "{\n  \"queries\": [\"Head of Sales B2B SaaS\", \"VP Sales SaaS startup\", \"CRO B2B\", \"RevOps Manager SaaS\", \"SDR Manager startup\"],\n  \"maxItems\": 20\n}"
+      }
+    },
+    {
+      "id": "d4e5f6g7-0004",
+      "name": "Deduplicate & Extract",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 300],
+      "parameters": {
+        "jsCode": "const seenDomains = new Set(\n  $('Get Already Seen Domains').all()\n    .map(i => i.json.company_domain)\n    .filter(Boolean)\n);\n\nconst jobs = Array.isArray($input.all()) ? $input.all().map(i => i.json) : [];\n\nconst unique = [];\nconst seen = new Set();\n\nfor (const job of jobs) {\n  const domain = (job.companyUrl || job.company_url || '')\n    .replace(/^https?:\\/\\/(www\\.)?/, '')\n    .split('/')[0]\n    .toLowerCase();\n  \n  if (!domain || seen.has(domain) || seenDomains.has(domain)) continue;\n  seen.add(domain);\n  \n  unique.push({\n    company_name: job.company || job.companyName || 'Unknown',\n    company_domain: domain,\n    open_role: job.title || job.jobTitle || 'Revenue role',\n    job_url: job.url || job.jobUrl || '',\n    posted_date: job.date || job.postedAt || 'Recent'\n  });\n}\n\nreturn unique.slice(0, 15).map(u => ({ json: u }));"
+      }
+    },
+    {
+      "id": "d4e5f6g7-0005",
+      "name": "Score Each Account",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1120, 300],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "x-api-key", "value": "={{ $env.ANTHROPIC_API_KEY }}" },
+            { "name": "anthropic-version", "value": "2023-06-01" },
+            { "name": "content-type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={\n  \"model\": \"claude-haiku-4-5-20251001\",\n  \"max_tokens\": 200,\n  \"messages\": [{\n    \"role\": \"user\",\n    \"content\": \"Score this account against our ICP (0-100). Return JSON only:\\n{\\\"score\\\": N, \\\"signals\\\": [\\\"signal1\\\"], \\\"why_now\\\": \\\"one sentence\\\"}\\n\\nICP: Founder-led B2B SaaS or tech-enabled services. 20-150 employees. $15K+ ACV. Has CRM + outbound stack. Inconsistent pipeline.\\n\\nCompany: {{ $json.company_name }}\\nDomain: {{ $json.company_domain }}\\nOpen role detected: {{ $json.open_role }}\\nPosted: {{ $json.posted_date }}\"\n  }]\n}"
+      }
+    },
+    {
+      "id": "d4e5f6g7-0006",
+      "name": "Parse & Merge",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1340, 300],
+      "parameters": {
+        "jsCode": "const account = $('Deduplicate & Extract').item.json;\nconst raw = $input.first().json.content[0].text;\n\nlet parsed;\ntry {\n  parsed = JSON.parse(raw);\n} catch(e) {\n  parsed = { score: 0, signals: [], why_now: 'Could not parse' };\n}\n\nreturn [{\n  json: {\n    ...account,\n    icp_score: parsed.score,\n    signals: parsed.signals,\n    why_now: parsed.why_now,\n    status: parsed.score >= 75 ? 'high_intent' : 'watch'\n  }\n}];"
+      }
+    },
+    {
+      "id": "d4e5f6g7-0007",
+      "name": "Save Signal to Supabase",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1560, 300],
+      "parameters": {
+        "method": "POST",
+        "url": "=https://{{ $env.SUPABASE_URL.replace('https://', '') }}/rest/v1/signals",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}" },
+            { "name": "Authorization", "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}" },
+            { "name": "Content-Type", "value": "application/json" },
+            { "name": "Prefer", "value": "return=minimal" }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={\n  \"company\": \"{{ $json.company_name }}\",\n  \"company_domain\": \"{{ $json.company_domain }}\",\n  \"signal_type\": \"hiring\",\n  \"signal_detail\": \"{{ $json.open_role }}\",\n  \"evidence\": \"{{ $json.job_url }}\",\n  \"icp_score\": {{ $json.icp_score }},\n  \"status\": \"{{ $json.status }}\",\n  \"source\": \"apify\"\n}"
+      }
+    },
+    {
+      "id": "d4e5f6g7-0008",
+      "name": "Aggregate High Intent",
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [1780, 300],
+      "parameters": {
+        "aggregate": "aggregateAllItemData",
+        "destinationFieldName": "all_signals",
+        "options": {}
+      }
+    },
+    {
+      "id": "d4e5f6g7-0009",
+      "name": "Log Daily Summary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2000, 300],
+      "parameters": {
+        "jsCode": "const all = $input.first().json.all_signals || [];\nconst highIntent = all.filter(s => s.status === 'high_intent');\nconst watch = all.filter(s => s.status === 'watch');\n\nreturn [{\n  json: {\n    agent: 'signal_engine',\n    action: 'daily_scan_complete',\n    result: `Signal scan complete — ${highIntent.length} high-intent, ${watch.length} watch accounts detected`,\n    status: 'success',\n    metadata: {\n      high_intent_count: highIntent.length,\n      watch_count: watch.length,\n      top_accounts: highIntent.slice(0, 3).map(s => ({\n        company: s.company_name,\n        score: s.icp_score,\n        why_now: s.why_now\n      }))\n    }\n  }\n}];"
+      }
+    },
+    {
+      "id": "d4e5f6g7-0010",
+      "name": "Log to Dashboard",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2220, 300],
+      "parameters": {
+        "method": "POST",
+        "url": "=https://{{ $env.SUPABASE_URL.replace('https://', '') }}/rest/v1/agent_logs",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}" },
+            { "name": "Authorization", "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}" },
+            { "name": "Content-Type", "value": "application/json" },
+            { "name": "Prefer", "value": "return=minimal" }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={\n  \"agent\": \"{{ $json.agent }}\",\n  \"action\": \"{{ $json.action }}\",\n  \"result\": \"{{ $json.result }}\",\n  \"status\": \"{{ $json.status }}\",\n  \"metadata\": {{ JSON.stringify($json.metadata) }}\n}"
+      }
+    }
+  ],
+  "connections": {
+    "7am Daily": {
+      "main": [[{ "node": "Get Already Seen Domains", "type": "main", "index": 0 }]]
+    },
+    "Get Already Seen Domains": {
+      "main": [[{ "node": "Scrape Job Board Signals", "type": "main", "index": 0 }]]
+    },
+    "Scrape Job Board Signals": {
+      "main": [[{ "node": "Deduplicate & Extract", "type": "main", "index": 0 }]]
+    },
+    "Deduplicate & Extract": {
+      "main": [[{ "node": "Score Each Account", "type": "main", "index": 0 }]]
+    },
+    "Score Each Account": {
+      "main": [[{ "node": "Parse & Merge", "type": "main", "index": 0 }]]
+    },
+    "Parse & Merge": {
+      "main": [[{ "node": "Save Signal to Supabase", "type": "main", "index": 0 }]]
+    },
+    "Save Signal to Supabase": {
+      "main": [[{ "node": "Aggregate High Intent", "type": "main", "index": 0 }]]
+    },
+    "Aggregate High Intent": {
+      "main": [[{ "node": "Log Daily Summary", "type": "main", "index": 0 }]]
+    },
+    "Log Daily Summary": {
+      "main": [[{ "node": "Log to Dashboard", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true
+  },
+  "active": false
+}

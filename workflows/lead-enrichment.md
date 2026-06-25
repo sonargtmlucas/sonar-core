@@ -1,51 +1,55 @@
 # Workflow: Lead Enrichment Pipeline
 **Pattern:** Webhook Processing
-**Trigger:** POST webhook — fires when Tiago adds a new lead (name + LinkedIn URL)
-**Purpose:** The moment Tiago drops a name, the system researches it, scores it, and if it qualifies, loads it into the right Instantly campaign automatically.
+**Trigger:** POST webhook — fires when Tiago submits a new lead
+**Purpose:** The moment Tiago drops a lead (from Sales Navigator export or manual), the system scores it, generates a personalized first line, and loads it into the right Instantly campaign automatically.
 
-## What it does
-1. Receives a new lead via webhook (name + LinkedIn URL + optional company)
-2. Scrapes the LinkedIn profile and company via Apify
-3. Scores the account against ICP
-4. If score >= 65: generates a personalized first line with Claude, inserts lead to Supabase, adds to the correct Instantly campaign
-5. If score < 65: logs to Supabase with status=watch, notifies Tiago
+## Input — what Tiago sends
+```json
+{
+  "name": "John Smith",
+  "title": "VP of Sales",
+  "company": "Acme Corp",
+  "company_domain": "acme.com",
+  "linkedin_url": "https://linkedin.com/in/johnsmith",
+  "email": "john@acme.com",
+  "company_size": "45",
+  "industry": "B2B SaaS"
+}
+```
+All fields from Sales Navigator export. `email` and `company_size` optional.
 
 ## Node structure
 ```
 Webhook (POST /leads/new)
-  Body: { "name": "John Smith", "linkedin": "URL", "company": "Acme Corp" }
-  → HTTP Request (Apify: scrape LinkedIn person profile)
-  → HTTP Request (Apify: scrape LinkedIn company page)
-  → Merge (combine person + company data)
-  → HTTP Request (Anthropic haiku: score + extract signals)
+  → HTTP Request (Anthropic haiku: score + extract signals from provided data)
   → IF (score >= 65)
     [True — qualified]
-      → HTTP Request (Anthropic haiku: generate personalized first line for email)
-      → HTTP Request (Supabase POST: insert to leads table with all data)
+      → HTTP Request (Anthropic haiku: generate personalized first line)
+      → HTTP Request (Supabase POST: insert to leads table, status=added_to_campaign)
       → HTTP Request (Instantly POST /lead/add: add to matching campaign)
-      → HTTP Request (Telegram: "Lead added to campaign: [name] at [company] — Score: [X]")
+      → HTTP Request (Supabase POST: insert to agent_logs — "Lead qualified: [name] at [company] — Score: [X]")
     [False — not qualified]
-      → HTTP Request (Supabase POST: insert to leads table with status=watch)
-      → HTTP Request (Telegram: "[name] at [company] scored [X]/100 — added to watch list")
+      → HTTP Request (Supabase POST: insert to leads table, status=watch)
+      → HTTP Request (Supabase POST: insert to agent_logs — "Lead watched: [name] at [company] — Score: [X]")
 ```
 
 ## Scoring prompt (Claude haiku)
 ```
 Score this person against our ICP (0-100). Return JSON only:
-{"score": N, "signals": ["signal1"], "why_now": "one sentence", "campaign": "dfy|discovery|watch"}
+{"score": N, "signals": ["signal1", "signal2"], "why_now": "one sentence reason", "campaign": "dfy|discovery|watch"}
 
-ICP: Founder, CRO, VP Sales, Head of Revenue at B2B SaaS/tech-enabled services, 20-150 employees, $15K+ ACV, has CRM + outbound stack.
+ICP: Founder, CRO, VP Sales, Head of Revenue at B2B SaaS or tech-enabled services, 20-150 employees, $15K+ ACV, has CRM + outbound stack.
 
-Person: {{ $json.person.name }}, {{ $json.person.headline }}
-Company: {{ $json.company.name }}, {{ $json.company.size }} employees, {{ $json.company.industry }}
-Open roles: {{ $json.company.openRoles }}
-Recent activity: {{ $json.person.recentPosts }}
+Person: {{ $json.name }}, {{ $json.title }} at {{ $json.company }}
+Company size: {{ $json.company_size }} employees
+Industry: {{ $json.industry }}
+Domain: {{ $json.company_domain }}
 ```
 
 ## Personalized first line prompt (Claude haiku)
 ```
-Write ONE personalized first line for a cold email to {{ name }} at {{ company }}.
-Reference this specific signal: {{ why_now }}
+Write ONE personalized first line for a cold email to {{ name }}, {{ title }} at {{ company }}.
+Use this signal context: {{ why_now }}
 Voice: direct, peer-level, no fluff. Max 25 words.
 Example: "Saw [Company] just hired a new CRO — that window where the new team is rebuilding the pipeline is usually when Sonar is most useful."
 ```
@@ -53,44 +57,55 @@ Example: "Saw [Company] just hired a new CRO — that window where the new team 
 ## Instantly campaign routing
 - score >= 75 AND title includes CRO/VP Sales → Campaign A (DFY offer)
 - score 65-74 OR title is Founder/CEO → Campaign B (Discovery call)
-- score < 65 → Do not add to Instantly
+- score < 65 → Do not add to Instantly, log as watch
 
-## Supabase table: leads
-```sql
-create table leads (
-  id uuid primary key default gen_random_uuid(),
-  name text,
-  title text,
-  company text,
-  linkedin_url text,
-  email text,
-  icp_score integer,
-  signals jsonb,
-  why_now text,
-  personalized_line text,
-  status text, -- 'added_to_campaign' | 'watch' | 'pass'
-  campaign_id text,
-  created_at timestamp default now()
-);
+## Supabase insert — leads table
+```json
+{
+  "name": "{{ name }}",
+  "title": "{{ title }}",
+  "company": "{{ company }}",
+  "company_domain": "{{ company_domain }}",
+  "linkedin_url": "{{ linkedin_url }}",
+  "email": "{{ email }}",
+  "icp_score": {{ score }},
+  "signals": {{ signals }},
+  "why_now": "{{ why_now }}",
+  "personalized_line": "{{ personalized_line }}",
+  "status": "added_to_campaign|watch",
+  "campaign_id": "{{ instantly_campaign_id }}",
+  "source": "n8n_lead_enrichment"
+}
 ```
 
-## Webhook URL (set this up in n8n)
-POST https://your-n8n-instance.com/webhook/leads/new
+## Supabase insert — agent_logs table
+```json
+{
+  "agent": "enrichment",
+  "action": "lead_processed",
+  "result": "Lead [name] at [company] scored [X]/100 — [status]",
+  "status": "success",
+  "metadata": { "icp_score": N, "campaign": "A|B|watch" }
+}
+```
 
-Tiago adds leads by sending a POST to this URL (can do via Telegram bot, Notion button, or a simple form).
+## Webhook URL
+POST https://your-n8n-instance.com/webhook/leads/new
+(Update to Railway URL in week 2)
+
+Tiago submits leads via:
+1. Simple form (build later) or
+2. Direct POST from a script Lucas provides
 
 ## Environment variables needed
-- APIFY_API_KEY
 - ANTHROPIC_API_KEY
 - INSTANTLY_API_KEY
 - SUPABASE_URL
 - SUPABASE_SERVICE_ROLE_KEY
-- TELEGRAM_BOT_TOKEN
-- TIAGO_TELEGRAM_CHAT_ID
 
 ## Status
-[ ] Workflow designed
-[ ] Supabase leads table created
+[ ] Workflow designed ✅
+[ ] Supabase tables created ✅
 [ ] n8n workflow built and tested
 [ ] Webhook URL shared with Tiago
 [ ] Activated

@@ -1,89 +1,93 @@
 # Workflow: Signal Monitor
 **Pattern:** Scheduled Task
 **Trigger:** Every day at 7:00 AM
-**Purpose:** Scan the ICP universe for new buying signals and surface high-intent accounts to Tiago before the workday starts.
+**Purpose:** Scan the ICP universe for new buying signals. High-intent accounts appear in the Dashboard's Signal Engine screen and agent_logs feed automatically.
 
 ## What it does
-1. Pulls the current ICP target list from Supabase (or a static search query)
-2. Runs Apify scrapes to detect new signals across those accounts
-3. Scores each account using Claude (haiku) against the ICP model
-4. Writes new accounts to Supabase `signal_logs` table
-5. Sends Tiago a Telegram alert with the day's top 3-5 high-intent accounts
+1. Pulls already-seen company domains from Supabase (deduplication)
+2. Runs Apify job board scraping to detect hiring signals (SDR/AE/RevOps openings = buying signal)
+3. Scores each account using Claude Haiku against the ICP model
+4. Writes results to Supabase `signals` table
+5. Logs a summary to agent_logs — appears in dashboard Signal Engine + Activity feed
 
 ## Node structure
 ```
 Schedule (7:00 AM daily)
-  → HTTP Request (Supabase: GET /signal_log?select=company_domain — get already-seen accounts)
-  → Code (prepare search queries from ICP criteria)
-  → HTTP Request (Apify: run linkedin-company-scraper with ICP filters)
-    [hiring: SDR/AE/RevOps, company size: 20-150, industry: SaaS]
-  → Code (deduplicate against already-seen accounts)
-  → Split in Batches (batchSize: 5 — process 5 accounts at a time)
-    → HTTP Request (Anthropic Claude haiku: score account against ICP)
+  → HTTP Request (Supabase GET /signals?select=company_domain — get already-processed domains)
+  → Code (prepare ICP search queries: "VP Sales hire" OR "SDR" OR "RevOps" + B2B SaaS)
+  → HTTP Request (Apify: run curious_coder/linkedin-jobs-scraper)
+    [queries: SDR/AE/RevOps/CRO openings, limit: 20 per day to control Apify cost]
+  → Code (deduplicate against already-seen domains, extract company names + domains)
+  → Split in Batches (batchSize: 5)
+    → HTTP Request (Anthropic haiku: score account against ICP)
     → IF (score >= 75)
-      [True]  → HTTP Request (Supabase POST: insert to signal_logs with status=high_intent)
-      [False] → HTTP Request (Supabase POST: insert to signal_logs with status=watch)
-  → Aggregate (collect all high-intent accounts from batch)
-  → Code (format Telegram message with top accounts)
-  → HTTP Request (Telegram: send to Tiago)
-  → Error Trigger → HTTP Request (Telegram: "Signal Monitor failed — check n8n")
+      [True]  → HTTP Request (Supabase POST /signals: status=high_intent)
+      [False] → HTTP Request (Supabase POST /signals: status=watch)
+  → Aggregate (collect all high_intent accounts)
+  → Code (format summary text)
+  → HTTP Request (Supabase POST /agent_logs: log daily signal summary)
+  → Error Trigger → HTTP Request (Supabase POST /agent_logs: log failure with error)
 ```
 
-## Claude prompt for scoring (in the HTTP Request body)
+## Claude prompt for scoring
 ```
-Score this account against our ICP (0-100). Return JSON: {"score": N, "signals": ["signal1", "signal2"], "why_now": "one sentence"}
+Score this account against our ICP (0-100). Return JSON only:
+{"score": N, "signals": ["signal1", "signal2"], "why_now": "one sentence"}
 
 ICP: Founder-led B2B SaaS or tech-enabled services. 20-150 employees. $15K+ ACV. Existing CRM + outbound stack. Inconsistent pipeline.
 
 Account data:
-Company: {{ $json.name }}
-Size: {{ $json.employeeCount }}
+Company: {{ $json.company_name }}
+Size estimate: {{ $json.employee_count }}
 Industry: {{ $json.industry }}
-Recent activity: {{ $json.recentPosts }}
-Open roles: {{ $json.openRoles }}
+Open roles detected: {{ $json.open_roles }}
+Job posting date: {{ $json.posted_date }}
 ```
 
-## Telegram message format
+## Supabase signals insert
+```json
+{
+  "company": "{{ company_name }}",
+  "company_domain": "{{ domain }}",
+  "signal_type": "hiring",
+  "signal_detail": "{{ open_roles }}",
+  "evidence": "{{ job_posting_url }}",
+  "icp_score": {{ score }},
+  "status": "high_intent|watch",
+  "source": "apify"
+}
 ```
-🔔 *Signal Monitor — {{ $now.toFormat('MMM d') }}*
+NOTE: Uses `signals` table (not signal_logs — that table doesn't exist in the schema).
 
-High-intent accounts today:
-
-*1. [Company Name]* — Score: 85/100
-Signal: New CRO hired + 3 SDR roles open
-Why now: Leadership change window (posted 4 days ago)
-
-*2. [Company Name]* — Score: 78/100
-...
-
-[View all in Supabase →]
+## Supabase agent_logs summary entry
+```json
+{
+  "agent": "signal_engine",
+  "action": "daily_scan_complete",
+  "result": "Signal scan complete — {{ high_intent_count }} high-intent, {{ watch_count }} watch accounts",
+  "status": "success",
+  "metadata": {
+    "high_intent_accounts": [{ "company": "...", "score": N, "why_now": "..." }],
+    "total_scanned": N,
+    "date": "{{ today }}"
+  }
+}
 ```
-(no emoji in content we send externally — Telegram alerts are internal only)
+Dashboard Signal Engine screen reads from `signals` table directly. Agent Activity shows the summary log.
 
-## Supabase table: signal_logs
-```sql
-create table signal_logs (
-  id uuid primary key default gen_random_uuid(),
-  company_name text,
-  company_domain text,
-  icp_score integer,
-  signals jsonb,
-  why_now text,
-  status text, -- 'high_intent' | 'watch' | 'pass'
-  detected_at timestamp default now()
-);
-```
+## Cost control
+- Apify job scraping: ~$0.005/job posting → 20 posts/day = ~$0.10/day = ~$3/month
+- Claude Haiku scoring: ~$0.001/account → 20 accounts = $0.02/day = ~$0.60/month
+- Total: ~$4/month for signal monitor
 
 ## Environment variables needed
-- ANTHROPIC_API_KEY
 - APIFY_API_KEY
+- ANTHROPIC_API_KEY
 - SUPABASE_URL
 - SUPABASE_SERVICE_ROLE_KEY
-- TELEGRAM_BOT_TOKEN
-- TIAGO_TELEGRAM_CHAT_ID
 
 ## Status
-[ ] Workflow designed
-[ ] Supabase table created
+[ ] Workflow designed ✅
+[ ] Supabase tables created ✅
 [ ] n8n workflow built and tested
 [ ] Activated

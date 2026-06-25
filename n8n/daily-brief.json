@@ -1,0 +1,158 @@
+{
+  "name": "Daily Brief",
+  "nodes": [
+    {
+      "id": "c3d4e5f6-0001",
+      "name": "8am Weekdays",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [240, 300],
+      "parameters": {
+        "rule": {
+          "interval": [{ "field": "cronExpression", "expression": "0 8 * * 1-5" }]
+        }
+      }
+    },
+    {
+      "id": "c3d4e5f6-0002",
+      "name": "Get Recent Signals",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [460, 180],
+      "parameters": {
+        "method": "GET",
+        "url": "=https://{{ $env.SUPABASE_URL.replace('https://', '') }}/rest/v1/signals?status=eq.high_intent&order=detected_at.desc&limit=5&select=company,signal_type,icp_score,why_now,detected_at",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}" },
+            { "name": "Authorization", "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}" }
+          ]
+        }
+      }
+    },
+    {
+      "id": "c3d4e5f6-0003",
+      "name": "Get Campaign Stats",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [460, 300],
+      "parameters": {
+        "method": "GET",
+        "url": "https://api.instantly.ai/api/v2/campaigns?limit=10&status=active",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "=Bearer {{ $env.INSTANTLY_API_KEY }}" }
+          ]
+        }
+      }
+    },
+    {
+      "id": "c3d4e5f6-0004",
+      "name": "Get Active Leads",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [460, 420],
+      "parameters": {
+        "method": "GET",
+        "url": "=https://{{ $env.SUPABASE_URL.replace('https://', '') }}/rest/v1/leads?status=eq.replied&order=updated_at.desc&limit=5&select=name,company,icp_score,why_now,updated_at",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}" },
+            { "name": "Authorization", "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}" }
+          ]
+        }
+      }
+    },
+    {
+      "id": "c3d4e5f6-0005",
+      "name": "Compile Context",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [700, 300],
+      "parameters": {
+        "jsCode": "const signals = $('Get Recent Signals').all().map(i => i.json);\nconst campaigns = ($('Get Campaign Stats').first().json.items || []);\nconst activeLeads = $('Get Active Leads').all().map(i => i.json);\n\nconst totalSent = campaigns.reduce((s, c) => s + (c.emails_sent || 0), 0);\nconst avgReply = campaigns.length > 0\n  ? (campaigns.reduce((s, c) => s + (c.reply_rate || 0), 0) / campaigns.length).toFixed(1)\n  : '0.0';\n\nreturn [{\n  json: {\n    signals_text: signals.map((s, i) => `${i+1}. ${s.company} — ${s.signal_type} — ${s.why_now}`).join('\\n') || 'No new signals today.',\n    campaign_text: `${totalSent} emails sent across ${campaigns.length} active campaigns. Avg reply rate: ${avgReply}%.`,\n    leads_text: activeLeads.map(l => `- ${l.name} at ${l.company} (score: ${l.icp_score})`).join('\\n') || 'No active conversations.',\n    today: new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })\n  }\n}];"
+      }
+    },
+    {
+      "id": "c3d4e5f6-0006",
+      "name": "Generate Brief",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [920, 300],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "x-api-key", "value": "={{ $env.ANTHROPIC_API_KEY }}" },
+            { "name": "anthropic-version", "value": "2023-06-01" },
+            { "name": "content-type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={\n  \"model\": \"claude-sonnet-4-6\",\n  \"max_tokens\": 500,\n  \"messages\": [{\n    \"role\": \"user\",\n    \"content\": \"Generate Tiago's daily operating brief for Sonar GTM. Be direct and specific. No fluff. Today: {{ $json.today }}\\n\\nNew high-intent signals:\\n{{ $json.signals_text }}\\n\\nOutreach performance:\\n{{ $json.campaign_text }}\\n\\nActive conversations:\\n{{ $json.leads_text }}\\n\\nGenerate a brief with EXACTLY these 4 sections:\\n1. TOP SIGNALS TODAY (max 3, company + why now + urgency)\\n2. OUTREACH STATUS (emails, reply rate, notable)\\n3. FOLLOW UP NOW (who to contact today and why)\\n4. TODAY'S PRIORITY (one action, one sentence)\\n\\nMax 250 words. Tiago reads this on his phone. Be direct.\"\n  }]\n}"
+      }
+    },
+    {
+      "id": "c3d4e5f6-0007",
+      "name": "Log Brief to Dashboard",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1140, 300],
+      "parameters": {
+        "method": "POST",
+        "url": "=https://{{ $env.SUPABASE_URL.replace('https://', '') }}/rest/v1/agent_logs",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}" },
+            { "name": "Authorization", "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}" },
+            { "name": "Content-Type", "value": "application/json" },
+            { "name": "Prefer", "value": "return=minimal" }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={\n  \"agent\": \"daily_brief\",\n  \"action\": \"brief_generated\",\n  \"result\": \"{{ $json.content[0].text.substring(0, 200).replace(/\"/g, \"'\") }}...\",\n  \"status\": \"success\",\n  \"metadata\": { \"full_brief\": \"{{ $json.content[0].text.replace(/\"/g, \"'\") }}\" }\n}"
+      }
+    }
+  ],
+  "connections": {
+    "8am Weekdays": {
+      "main": [
+        [
+          { "node": "Get Recent Signals", "type": "main", "index": 0 },
+          { "node": "Get Campaign Stats", "type": "main", "index": 0 },
+          { "node": "Get Active Leads", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Get Recent Signals": {
+      "main": [[{ "node": "Compile Context", "type": "main", "index": 0 }]]
+    },
+    "Get Campaign Stats": {
+      "main": [[{ "node": "Compile Context", "type": "main", "index": 1 }]]
+    },
+    "Get Active Leads": {
+      "main": [[{ "node": "Compile Context", "type": "main", "index": 2 }]]
+    },
+    "Compile Context": {
+      "main": [[{ "node": "Generate Brief", "type": "main", "index": 0 }]]
+    },
+    "Generate Brief": {
+      "main": [[{ "node": "Log Brief to Dashboard", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true
+  },
+  "active": false
+}

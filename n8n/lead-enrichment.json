@@ -1,0 +1,279 @@
+{
+  "name": "Lead Enrichment",
+  "nodes": [
+    {
+      "id": "a1b2c3d4-0001",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "leads/new",
+        "responseMode": "lastNode",
+        "options": {}
+      }
+    },
+    {
+      "id": "a1b2c3d4-0002",
+      "name": "Score with Claude Haiku",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [460, 300],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "x-api-key", "value": "={{ $env.ANTHROPIC_API_KEY }}" },
+            { "name": "anthropic-version", "value": "2023-06-01" },
+            { "name": "content-type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={\n  \"model\": \"claude-haiku-4-5-20251001\",\n  \"max_tokens\": 300,\n  \"messages\": [{\n    \"role\": \"user\",\n    \"content\": \"Score this person against our ICP (0-100). Return JSON only, no explanation:\\n{\\\"score\\\": N, \\\"signals\\\": [\\\"signal1\\\", \\\"signal2\\\"], \\\"why_now\\\": \\\"one sentence\\\", \\\"campaign\\\": \\\"dfy|discovery|watch\\\"}\\n\\nICP: Founder, CRO, VP Sales, Head of Revenue at B2B SaaS or tech-enabled services. 20-150 employees. $15K+ ACV. Has CRM + outbound stack. Inconsistent pipeline.\\n\\nPerson: {{ $json.body.name }}, {{ $json.body.title }}\\nCompany: {{ $json.body.company }}, {{ $json.body.company_size }} employees, {{ $json.body.industry }}\\nDomain: {{ $json.body.company_domain }}\\nEmail: {{ $json.body.email }}\"\n  }]\n}"
+      }
+    },
+    {
+      "id": "a1b2c3d4-0003",
+      "name": "Parse Score",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [680, 300],
+      "parameters": {
+        "jsCode": "const raw = $input.first().json.content[0].text;\nconst parsed = JSON.parse(raw);\nconst body = $('Webhook').first().json.body;\n\nreturn [{\n  json: {\n    ...body,\n    icp_score: parsed.score,\n    signals: parsed.signals,\n    why_now: parsed.why_now,\n    campaign: parsed.campaign\n  }\n}];"
+      }
+    },
+    {
+      "id": "a1b2c3d4-0004",
+      "name": "Qualified?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [900, 300],
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "conditions": [
+            {
+              "id": "cond-001",
+              "leftValue": "={{ $json.icp_score }}",
+              "rightValue": 65,
+              "operator": { "type": "number", "operation": "gte" }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "a1b2c3d4-0005",
+      "name": "Generate First Line",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1120, 180],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "x-api-key", "value": "={{ $env.ANTHROPIC_API_KEY }}" },
+            { "name": "anthropic-version", "value": "2023-06-01" },
+            { "name": "content-type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={\n  \"model\": \"claude-haiku-4-5-20251001\",\n  \"max_tokens\": 100,\n  \"messages\": [{\n    \"role\": \"user\",\n    \"content\": \"Write ONE personalized first line for a cold email to {{ $json.name }} at {{ $json.company }}. Reference this signal: {{ $json.why_now }}. Voice: direct, peer-level, no fluff. Max 25 words. No greeting, just the line itself.\"\n  }]\n}"
+      }
+    },
+    {
+      "id": "a1b2c3d4-0006",
+      "name": "Merge Lead + First Line",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1340, 180],
+      "parameters": {
+        "jsCode": "const lead = $('Qualified?').first().json;\nconst firstLine = $input.first().json.content[0].text.trim();\n\nconst title = lead.title || '';\nlet campaign = lead.campaign;\nif (!campaign) {\n  const score = lead.icp_score;\n  const isSenior = /cro|vp|head of sales|head of revenue/i.test(title);\n  campaign = (score >= 75 && isSenior) ? 'dfy' : 'discovery';\n}\n\nreturn [{ json: { ...lead, personalized_line: firstLine, resolved_campaign: campaign } }];"
+      }
+    },
+    {
+      "id": "a1b2c3d4-0007",
+      "name": "Insert to Supabase",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1560, 180],
+      "parameters": {
+        "method": "POST",
+        "url": "=https://{{ $env.SUPABASE_URL.replace('https://', '') }}/rest/v1/leads",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}" },
+            { "name": "Authorization", "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}" },
+            { "name": "Content-Type", "value": "application/json" },
+            { "name": "Prefer", "value": "return=representation" }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={\n  \"name\": \"{{ $json.name }}\",\n  \"title\": \"{{ $json.title }}\",\n  \"company\": \"{{ $json.company }}\",\n  \"company_domain\": \"{{ $json.company_domain }}\",\n  \"linkedin_url\": \"{{ $json.linkedin_url }}\",\n  \"email\": \"{{ $json.email }}\",\n  \"icp_score\": {{ $json.icp_score }},\n  \"signals\": {{ JSON.stringify($json.signals) }},\n  \"why_now\": \"{{ $json.why_now }}\",\n  \"personalized_line\": \"{{ $json.personalized_line }}\",\n  \"status\": \"added_to_campaign\",\n  \"source\": \"manual\"\n}"
+      }
+    },
+    {
+      "id": "a1b2c3d4-0008",
+      "name": "Add to Instantly",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1780, 180],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.instantly.ai/api/v2/leads",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "=Bearer {{ $env.INSTANTLY_API_KEY }}" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={\n  \"campaign_id\": \"{{ $json.resolved_campaign === 'dfy' ? $env.INSTANTLY_CAMPAIGN_A_ID : $env.INSTANTLY_CAMPAIGN_B_ID }}\",\n  \"email\": \"{{ $json.email }}\",\n  \"first_name\": \"{{ $json.name.split(' ')[0] }}\",\n  \"last_name\": \"{{ $json.name.split(' ').slice(1).join(' ') }}\",\n  \"company_name\": \"{{ $json.company }}\",\n  \"personalization\": \"{{ $json.personalized_line }}\"\n}"
+      }
+    },
+    {
+      "id": "a1b2c3d4-0009",
+      "name": "Log Success",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2000, 180],
+      "parameters": {
+        "method": "POST",
+        "url": "=https://{{ $env.SUPABASE_URL.replace('https://', '') }}/rest/v1/agent_logs",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}" },
+            { "name": "Authorization", "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}" },
+            { "name": "Content-Type", "value": "application/json" },
+            { "name": "Prefer", "value": "return=minimal" }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={\n  \"agent\": \"enrichment\",\n  \"action\": \"lead_qualified\",\n  \"result\": \"{{ $('Merge Lead + First Line').first().json.name }} at {{ $('Merge Lead + First Line').first().json.company }} — Score: {{ $('Merge Lead + First Line').first().json.icp_score }}/100 → {{ $('Merge Lead + First Line').first().json.resolved_campaign }}\",\n  \"status\": \"success\",\n  \"metadata\": {{ JSON.stringify({ name: $('Merge Lead + First Line').first().json.name, company: $('Merge Lead + First Line').first().json.company, score: $('Merge Lead + First Line').first().json.icp_score, why_now: $('Merge Lead + First Line').first().json.why_now }) }}\n}"
+      }
+    },
+    {
+      "id": "a1b2c3d4-0010",
+      "name": "Insert Watch Lead",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1120, 420],
+      "parameters": {
+        "method": "POST",
+        "url": "=https://{{ $env.SUPABASE_URL.replace('https://', '') }}/rest/v1/leads",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}" },
+            { "name": "Authorization", "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}" },
+            { "name": "Content-Type", "value": "application/json" },
+            { "name": "Prefer", "value": "return=minimal" }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={\n  \"name\": \"{{ $json.name }}\",\n  \"title\": \"{{ $json.title }}\",\n  \"company\": \"{{ $json.company }}\",\n  \"company_domain\": \"{{ $json.company_domain }}\",\n  \"linkedin_url\": \"{{ $json.linkedin_url }}\",\n  \"email\": \"{{ $json.email }}\",\n  \"icp_score\": {{ $json.icp_score }},\n  \"signals\": {{ JSON.stringify($json.signals) }},\n  \"why_now\": \"{{ $json.why_now }}\",\n  \"status\": \"watch\",\n  \"source\": \"manual\"\n}"
+      }
+    },
+    {
+      "id": "a1b2c3d4-0011",
+      "name": "Log Watch",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1340, 420],
+      "parameters": {
+        "method": "POST",
+        "url": "=https://{{ $env.SUPABASE_URL.replace('https://', '') }}/rest/v1/agent_logs",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}" },
+            { "name": "Authorization", "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}" },
+            { "name": "Content-Type", "value": "application/json" },
+            { "name": "Prefer", "value": "return=minimal" }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={\n  \"agent\": \"enrichment\",\n  \"action\": \"lead_watch\",\n  \"result\": \"{{ $json.name }} at {{ $json.company }} — Score: {{ $json.icp_score }}/100 — added to watch list\",\n  \"status\": \"success\"\n}"
+      }
+    },
+    {
+      "id": "a1b2c3d4-0012",
+      "name": "Respond OK",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [2220, 300],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={ \"ok\": true, \"score\": {{ $('Parse Score').first().json.icp_score }}, \"status\": \"{{ $('Parse Score').first().json.icp_score >= 65 ? 'qualified' : 'watch' }}\" }"
+      }
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [[{ "node": "Score with Claude Haiku", "type": "main", "index": 0 }]]
+    },
+    "Score with Claude Haiku": {
+      "main": [[{ "node": "Parse Score", "type": "main", "index": 0 }]]
+    },
+    "Parse Score": {
+      "main": [[{ "node": "Qualified?", "type": "main", "index": 0 }]]
+    },
+    "Qualified?": {
+      "main": [
+        [{ "node": "Generate First Line", "type": "main", "index": 0 }],
+        [{ "node": "Insert Watch Lead", "type": "main", "index": 0 }]
+      ]
+    },
+    "Generate First Line": {
+      "main": [[{ "node": "Merge Lead + First Line", "type": "main", "index": 0 }]]
+    },
+    "Merge Lead + First Line": {
+      "main": [[{ "node": "Insert to Supabase", "type": "main", "index": 0 }]]
+    },
+    "Insert to Supabase": {
+      "main": [[{ "node": "Add to Instantly", "type": "main", "index": 0 }]]
+    },
+    "Add to Instantly": {
+      "main": [[{ "node": "Log Success", "type": "main", "index": 0 }]]
+    },
+    "Log Success": {
+      "main": [[{ "node": "Respond OK", "type": "main", "index": 0 }]]
+    },
+    "Insert Watch Lead": {
+      "main": [[{ "node": "Log Watch", "type": "main", "index": 0 }]]
+    },
+    "Log Watch": {
+      "main": [[{ "node": "Respond OK", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": ""
+  },
+  "active": false
+}
