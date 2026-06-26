@@ -26,7 +26,7 @@ Each person sets their own `CLICKUP_PERSONAL_TOKEN` in their local `.env`.
 This ensures the query returns THEIR tasks, not someone else's.
 
 ```bash
-curl -s "https://api.clickup.com/api/v2/team/90171339348/task?statuses[]=to%20do&statuses[]=in%20progress&order_by=priority&assignees[]=$CLICKUP_USER_ID" \
+curl -s "https://api.clickup.com/api/v2/team/90171339342/task?statuses[]=to%20do&statuses[]=in%20progress&order_by=priority&assignees[]=$CLICKUP_USER_ID" \
   -H "Authorization: $CLICKUP_PERSONAL_TOKEN" | python3 -c "
 import sys, json
 d = json.load(sys.stdin)
